@@ -98,9 +98,53 @@ void AllocTest()
 	t2.join();
 }
 
+void ConcurrentAllocTest1()
+{
+	void* ptr1 = ConcurrentAlloc(5);
+	void* ptr2 = ConcurrentAlloc(8);
+	void* ptr3 = ConcurrentAlloc(4);
+	void* ptr4 = ConcurrentAlloc(6);
+	void* ptr5 = ConcurrentAlloc(3);
+
+	std::cout << ptr1 << std::endl;
+	std::cout << ptr2 << std::endl;
+	std::cout << ptr3 << std::endl;
+	std::cout << ptr4 << std::endl;
+	std::cout << ptr5 << std::endl;
+}
+
+void ConcurrentAllocTest2()
+{
+	for (int i = 0; i < 1024; ++i)
+	{
+		void* ptr = ConcurrentAlloc(5);
+		std::cout << ptr << std::endl;
+	}
+
+	void* ptr = ConcurrentAlloc(3);
+	std::cout << "-------------" << ptr << std::endl;
+}
+
+void TestAddressShift()
+{
+	// 两个页号
+	PageID id1 = 2000;
+	PageID id2 = 2001;
+
+	// 通过页号找到id1页的页内偏移
+	char* p1 = (char*)(id1 << PAGE_SHIFT);
+	char* p2 = (char*)(id2 << PAGE_SHIFT);
+
+	while (p1 < p2)
+	{
+		std::cout << (void*)p1 << ":" << ((PageID)p1 >> PAGE_SHIFT) << std::endl;
+		p1 += 8;
+	}
+}
+
 int main()
 {
 	// TestObjectPool();
 
-	AllocTest();
+	ConcurrentAllocTest1();
 }

@@ -1,27 +1,7 @@
-#pragma once
+#ifndef _OBJECT_POOL_H_
+#define _OBJECT_POOL_H_
+
 #include "Common.h"
-
-#ifdef _WIN32
-	#include <Windows.h>	// Windows下的头文件
-#else
-	// 这里是Linux相关的头文件，就不写出来了
-#endif // _WIN32
-
-// 直接上堆上按页申请空间
-inline static void* SystemAlloc(size_t kpage)
-{
-#ifdef _WIN32
-	void* ptr = VirtualAlloc(0, kpage << 13, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
-#else
-	// linux下brk mmap等
-#endif
-
-	if (ptr == nullptr)
-		throw std::bad_alloc();
-
-	return ptr;
-}
-
 
 template<class T>
 class ObjectPool
@@ -83,3 +63,5 @@ private:
 	void* m_freelist = nullptr;		// 自由链表，用来链接归还的空闲空间
 	size_t m_remanentBytes = 0;		// 大块内存在切分过程中剩余字节数
 };
+
+#endif // !_OBJECT_POOL_H_
