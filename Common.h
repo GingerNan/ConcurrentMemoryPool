@@ -28,6 +28,17 @@ inline static void* SystemAlloc(size_t kpage)
 	return ptr;
 }
 
+// 直接去堆上释放空间
+inline static void SysytemFree(void* ptr)
+{
+#ifdef _WIN32
+	VirtualFree(ptr, 0, MEM_RELEASE);
+#else
+	// sbrk unmmap等
+#endif // _WIN32
+
+}
+
 static const size_t FREE_LIST_NUM = 208;	// 哈希表中自由链表个数
 static const size_t	MAX_BYTES = 256 * 1024;	// ThreadCache单次申请的最大字节数
 static const size_t	PAGE_NUM = 129;			// span的最大管理页数
@@ -42,6 +53,25 @@ static void*& ObjNext(void* obj)
 class FreeList
 {
 public:
+	// 删除掉桶中n个块（头删），并把删除的空间作为输出型参数返回
+	void PopRange(void*& start, void*& end, size_t n)
+	{
+		// 删除块数不能超过size块
+		assert(n <= m_size);
+
+		start = end = m_freeList;
+
+		for (size_t i = 0; i < n - 1; ++i)
+		{
+			end = ObjNext(end);	// end往后走一块
+		}
+
+		m_freeList = ObjNext(end);
+		ObjNext(end) = nullptr;
+		m_size -= n;
+	}
+
+
 	// 向自由链表中头插，且插入多块空间
 	void PushRange(void* start, void* end, size_t size)
 	{
@@ -110,6 +140,7 @@ struct Span
 {
 	PageID _pageID = 0;	// 页号
 	size_t _n = 0;		// 页的数量
+	size_t _objSize = 0; // span管理页被切分成的块有多大
 
 	Span* _next = nullptr;	// 前一个节点
 	Span* _prev = nullptr;	// 后一个节点
@@ -234,9 +265,12 @@ public:
 			return _RoundUp(size, 8 * 1024);
 		}
 		else
-		{	// 不可能的情况，这里通过tc申请空间不会超过256KB
-			assert(false);
-			return -1;
+		{	// 单次申请空间大于256KB，直接按照页来对齐
+			return _RoundUp(size, 1 << PAGE_SHIFT);
+			/* 这里直接给PAGE_SHIFT虽然说和前一个的8 * 1024KB一样，
+			但是我们如果后续想要修改页大小的时候就直接修改PAGE_SHIFT
+			这样就和前面的不一样了
+			*/
 		}
 	}
 
@@ -333,8 +367,10 @@ public:
 	}
 
 private:
-	// 计算每个分区对应的对齐后的字节数
-	// alignNum是size对应分区的对其数
+	/**
+	 * 计算每个分区对应的对齐后的字节数
+	 * @param alignNum 是size对应分区的对其数
+	 */
 	static size_t _RoundUp(size_t size, size_t alignNum)
 	{
 		size_t res = 0;

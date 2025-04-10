@@ -23,6 +23,9 @@ public:
 	// 获取一个管理空间不为空的span
 	Span* GetOneSpan(SpanList& list, size_t size);
 
+	// 将tc换回来的多块空间放到span中
+	void ReleaseListToSpans(void* start, size_t size);
+
 private:
 	// 单例，去掉构造、拷贝和拷赋
 	CentralCache() {}

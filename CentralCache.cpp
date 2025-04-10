@@ -63,6 +63,8 @@ Span* CentralCache::GetOneSpan(SpanList& list, size_t size)
 	PageCache::GetInstance()->_pageMtx.lock();
 	// 调用NewSpan获取一个全新span
 	Span* span = PageCache::GetInstance()->NewSpan(k);
+	span->_isUse = true; // cc获取到了pc中的span，改成正在使用
+	span->_objSize = size; // 记录span被切分的块有多大
 	PageCache::GetInstance()->_pageMtx.unlock();
 
 	/* 这里要强转一下，因为_pageID时PageID类型(size_t或者
@@ -93,4 +95,55 @@ Span* CentralCache::GetOneSpan(SpanList& list, size_t size)
 	list.PushFront(span);
 
 	return span;
+}
+
+void CentralCache::ReleaseListToSpans(void* start, size_t size)
+{
+	// 先通过size找到对应的桶在哪里
+	size_t index = SizeClass::Index(size);
+
+	// 下面要对cc中的span进行操作，所以加上cc的桶锁
+	m_spanLists[index].m_mutex.lock();
+
+	// 遍历start，将各个块放到对应页的span所管理的_freeList中
+	while (start) //start为空时停止
+	{
+		// 记录一下start下一位
+		void* next = ObjNext(start);
+
+		// 找到对应span
+		Span* span = PageCache::GetInstance()->MapObjectToSpan(start);
+
+		// 把当前块插入到对应span中
+		ObjNext(start) = span->_freeList;
+		span->_freeList = start;
+
+		// 还回了一块空间，对应span的useCount要减1
+		span->_usecount--;
+		if (span->_usecount == 0) // 这个span管理的所有页都回来了
+		{ // 将这个span交给pc管理
+
+			// 先将span从cc中去掉
+			m_spanLists[index].Erase(span);
+			span->_freeList = nullptr;
+			span->_next = nullptr;
+			span->_prev = nullptr;
+
+			// 归还span，解掉当前桶锁
+			m_spanLists[index].m_mutex.unlock();
+
+			// 归还span，加上page的整体锁
+			PageCache::GetInstance()->_pageMtx.lock();
+			PageCache::GetInstance()->ReleaseSpanToPageCache(span);
+			PageCache::GetInstance()->_pageMtx.unlock();
+
+			// 归还完毕，再加上当前桶的桶锁
+			m_spanLists[index].m_mutex.lock();
+		}
+
+		// 换下一个块
+		start = next;
+	}
+
+	m_spanLists[index].m_mutex.unlock(); // 解桶锁
 }

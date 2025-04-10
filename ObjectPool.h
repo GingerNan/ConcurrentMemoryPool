@@ -62,6 +62,9 @@ private:
 	char* m_memory = nullptr;		// 指向内存块的指针
 	void* m_freelist = nullptr;		// 自由链表，用来链接归还的空闲空间
 	size_t m_remanentBytes = 0;		// 大块内存在切分过程中剩余字节数
+
+public:
+	std::mutex _poolMtx;			// 防止ThreadCache申请时申请到空指针
 };
 
 #endif // !_OBJECT_POOL_H_

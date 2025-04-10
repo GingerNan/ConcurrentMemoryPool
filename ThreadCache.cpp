@@ -26,6 +26,12 @@ void ThreadCache::Deallocate(void* obj, size_t size)
 
 	size_t index = SizeClass::Index(size);	// 找到size对应的自由链表
 	m_freeLists[index].Push(obj);	// 用对应自由链表回收空间
+
+	// 当前桶中的块数大于等于单批次申请块数的时候归还空间
+	if (m_freeLists[index].Size() >= m_freeLists[index].MaxSize())
+	{
+		ListTooLong(m_freeLists[index], size);
+	}
 }
 
 void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
@@ -77,4 +83,16 @@ void* ThreadCache::FetchFromCentralCache(size_t index, size_t alignSize)
 	}
 
 	return nullptr;
+}
+
+void ThreadCache::ListTooLong(FreeList& list, size_t size)
+{
+	void* start = nullptr;
+	void* end = nullptr;
+
+	// 获取MaxSize块空间
+	list.PopRange(start, end, list.MaxSize());
+
+	// 归还空间
+	CentralCache::GetInstance()->ReleaseListToSpans(start, size);
 }
