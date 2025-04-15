@@ -136,22 +136,22 @@ void BigAlloc()
 	ConcurrentFree(p2);
 }
 
-//int main()
-//{
-//	//BigAlloc();
-//
-//	//AllocTest();
-//	//ConcurrentAllocTest1();
-//	//ConcurrentAllocTest2();
-//
-//	//TestAddressShift();
-//
-//	//TestConcurrentFree1();
-//	//TestMultiThread();
-//
-//	//void* ptr = ConcurrentAlloc(500 * 1024);
-//	return 0;
-//}
+int main()
+{
+	//BigAlloc();
+
+	//AllocTest();
+	//ConcurrentAllocTest1();
+	//ConcurrentAllocTest2();
+
+	//TestAddressShift();
+
+	//TestConcurrentFree1();
+	//TestMultiThread();
+
+	//void* ptr = ConcurrentAlloc(500 * 1024);
+	return 0;
+}
 
 //#include<iostream>
 //using std::min;
